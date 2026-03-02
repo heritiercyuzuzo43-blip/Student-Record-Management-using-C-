@@ -1,0 +1,504 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <iomanip>
+#include <limits>
+#include <map>
+
+
+
+
+using namespace std;
+
+// ================== Student Class ==================
+class Student {
+public:
+    int id;
+    string name;
+    int age;
+    string course;
+    double gpa;
+    string username;
+    string password;
+    string contact;
+
+    Student() {}
+    Student(int i, string n, int a, string c, double g, string u, string p, string con) {
+        id = i; name = n; age = a; course = c; gpa = g;
+        username = u; password = p; contact = con;
+    }
+
+    void display() {
+        cout << "ID: " << id << " | Name: " << name
+             << " | Age: " << age << " | Course: " << course
+             << " | GPA: " << gpa << " | Contact: " << contact << endl;
+    }
+};
+
+// ================== File Handling ==================
+void saveStudent(Student s) {
+    ofstream fout("students.txt", ios::app);
+    fout << s.id << "," << s.name << "," << s.age << "," << s.course << ","
+         << s.gpa << "," << s.username << "," << s.password << "," << s.contact << endl;
+    fout.close();
+}
+
+vector<Student> loadStudents() {
+    vector<Student> students;
+    ifstream fin("students.txt");
+    string line;
+    while (getline(fin, line)) {
+        if(line.empty()) continue;
+        stringstream ss(line);
+        string token;
+        Student s;
+        getline(ss, token, ','); s.id = stoi(token);
+        getline(ss, s.name, ',');
+        getline(ss, token, ','); s.age = stoi(token);
+        getline(ss, s.course, ',');
+        getline(ss, token, ','); s.gpa = stod(token);
+        getline(ss, s.username, ',');
+        getline(ss, s.password, ',');
+        getline(ss, s.contact, ',');
+        students.push_back(s);
+    }
+    fin.close();
+    return students;
+}
+
+// ================== Attendance Handling ==================
+void markAttendance(int studentId, string date, string status) {
+    ifstream fin("attendance.txt");
+    vector<string> records;
+    string line;
+    bool updated = false;
+
+    while (getline(fin, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+        string token, d, st;
+        int sid;
+        getline(ss, token, ','); sid = stoi(token);
+        getline(ss, d, ',');
+        getline(ss, st, ',');
+
+        if (sid == studentId && d == date) {
+            // Overwrite old record for same student & date
+            line = to_string(sid) + "," + date + "," + status;
+            updated = true;
+        }
+        records.push_back(line);
+    }
+    fin.close();
+
+    // If no record existed, add a new one
+    if (!updated) {
+        records.push_back(to_string(studentId) + "," + date + "," + status);
+    }
+
+    // Rewrite the file cleanly
+    ofstream fout("attendance.txt", ios::out | ios::trunc);
+    for (auto &rec : records) {
+        fout << rec << endl;
+    }
+    fout.close();
+
+    if (updated)
+        cout << "✅ Attendance updated for Student " << studentId << " on " << date << endl;
+    else
+        cout << "✅ Attendance marked for Student " << studentId << " on " << date << endl;
+}
+
+
+void viewAttendance(int studentId) {
+    ifstream fin("attendance.txt");
+    if (!fin) {
+        cout << "No attendance records found.\n";
+        return;
+    }
+
+    map<string, string> records; // date -> status (latest only)
+    string line;
+    while (getline(fin, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+        string token, date, status;
+        int id;
+        getline(ss, token, ','); id = stoi(token);
+        getline(ss, date, ',');
+        getline(ss, status, ',');
+        if (id == studentId) {
+            records[date] = status; // overwrite if duplicate
+        }
+    }
+    fin.close();
+
+    cout << "\nAttendance for Student ID " << studentId << ":\n";
+    if (records.empty()) {
+        cout << "No attendance records found.\n";
+        return;
+    }
+    for (auto &r : records) {
+        cout << r.first << " -> " << r.second << endl;
+    }
+}
+
+void viewAllStudents() {
+    vector<Student> students = loadStudents();
+    if (students.empty()) {
+        cout << "\nNo students found!\n";
+        return;
+    }
+
+    cout << "\n===== List of All Students =====\n\n";
+
+    // Print table header
+    cout << left << setw(10) << "ID"
+         << setw(20) << "Name"
+         << setw(10) << "Age"
+         << setw(15) << "Course"
+         << setw(6) << "GPA"
+         << setw(15) << "Username"
+         << setw(15) << "Password"
+         << setw(15) << "Contact" << endl;
+
+    cout << string(98, '-') << endl; // separator line
+
+    // Print each student
+    for (auto &s : students) {
+        cout << left << setw(10) << s.id
+             << setw(20) << s.name
+             << setw(10) << s.age
+             << setw(15) << s.course
+             << setw(6) << fixed << setprecision(2) << s.gpa
+             << setw(15) << s.username
+             << setw(15) << s.password
+             << setw(15) << s.contact
+             << endl;
+    }
+}
+void updateStudent() {
+    vector<Student> students = loadStudents();
+    if (students.empty()) {
+        cout << "\nNo students available to update!\n";
+        return;
+    }
+
+    int id;
+    cout << "Enter Student ID to update: ";
+    cin >> id;
+
+    bool found = false;
+    for (auto &s : students) {
+        if (s.id == id) {
+            found = true;
+            cout << "Updating record for " << s.name << endl;
+
+            cout << "Enter new Name: "; cin.ignore(); getline(cin, s.name);
+            cout << "Enter new Age: "; cin >> s.age;
+            cout << "Enter new Course: "; cin.ignore(); getline(cin, s.course);
+            cout << "Enter new GPA: "; cin >> s.gpa;
+            cout << "Enter new Username: "; cin >> s.username;
+            cout << "Enter new Password: "; cin >> s.password;
+            cout << "Enter new Contact: "; cin >> s.contact;
+
+            cout << "Record updated successfully!\n";
+            break;
+        }
+    }
+
+    if (!found) {
+        cout << "Student with ID " << id << " not found.\n";
+        return;
+    }
+
+    // Save all students back to file
+    ofstream fout("students.txt");
+    for (auto &s : students) {
+        fout << s.id << "," << s.name << "," << s.age << "," << s.course << ","
+             << s.gpa << "," << s.username << "," << s.password << "," << s.contact << endl;
+    }
+    fout.close();
+}
+void deleteStudent() {
+    vector<Student> students = loadStudents();
+    if (students.empty()) {
+        cout << "\nNo students available to delete!\n";
+        return;
+    }
+
+    int id;
+    cout << "Enter Student ID to delete: ";
+    cin >> id;
+
+    bool found = false;
+    vector<Student> updatedList;
+
+    for (auto &s : students) {
+        if (s.id == id) {
+            found = true;
+            cout << "Deleting record for " << s.name << endl;
+            continue; // skip this student
+        }
+        updatedList.push_back(s);
+    }
+
+    if (!found) {
+        cout << "Student with ID " << id << " not found.\n";
+        return;
+    }
+
+    // Save updated student list
+    ofstream fout("students.txt");
+    for (auto &s : updatedList) {
+        fout << s.id << "," << s.name << "," << s.age << "," << s.course << ","
+             << s.gpa << "," << s.username << "," << s.password << "," << s.contact << endl;
+    }
+    fout.close();
+
+    // 🔹 ALSO remove their attendance records
+    ifstream fin("attendance.txt");
+    ofstream temp("temp.txt");
+    string line;
+    while (getline(fin, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+        string token, date, status;
+        int sid;
+        getline(ss, token, ','); sid = stoi(token);
+        getline(ss, date, ',');
+        getline(ss, status, ',');
+        if (sid != id) {  // keep only attendance of other students
+            temp << sid << "," << date << "," << status << endl;
+        }
+    }
+    fin.close();
+    temp.close();
+
+    remove("attendance.txt");         // delete old file
+    rename("temp.txt", "attendance.txt");  // replace with updated
+
+    cout << "Record and related attendance deleted successfully!\n";
+}
+void cleanAttendanceFile() {
+    ifstream fin("attendance.txt");
+    if (!fin) {
+        cout << "No attendance file found.\n";
+        return;
+    }
+
+    // Use map to store only the latest record for (studentId, date)
+    map<pair<int,string>, string> latest;
+    string line;
+
+    while (getline(fin, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+        string token, date, status;
+        int sid;
+        getline(ss, token, ','); sid = stoi(token);
+        getline(ss, date, ',');
+        getline(ss, status, ',');
+
+        // overwrite old value → keeps last record for same student & date
+        latest[{sid, date}] = status;
+    }
+    fin.close();
+
+    // Now write ONLY cleaned data back
+    ofstream fout("attendance.txt", ios::out | ios::trunc);
+    for (auto &entry : latest) {
+        fout << entry.first.first << ","   // Student ID
+             << entry.first.second << ","  // Date
+             << entry.second << endl;      // Status
+    }
+    fout.close();
+
+    cout << "✅ Attendance file cleaned successfully! Duplicates removed.\n";
+}
+
+
+
+
+// ================== Admin Menu ==================
+void adminMenu() {
+    int choice;
+    do {
+        cout << "\n===== Admin Menu =====\n";
+        cout << "1. Add Student\n";
+        cout << "2. View All Students\n";
+        cout << "3. Update Student\n";
+        cout << "4. Delete Student\n";
+        cout << "5. Mark Attendance\n";
+        cout << "6. View Attendance Report\n";
+        cout << "7. Logout\n";
+        cout << "Enter choice: ";
+        cin >> choice;
+
+        if (choice == 1) {
+                int id, age;
+    string name, course, username, password, contact;
+    double gpa;
+
+    cout << "Enter ID: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    cout << "Enter Name: ";
+    getline(cin, name);
+
+    cout << "Enter Age: ";
+    cin >> age;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    cout << "Enter Course: ";
+    getline(cin, course);
+
+    cout << "Enter GPA: ";
+    cin >> gpa;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    cout << "Set Username: ";
+    cin >> username;
+    cout << "Set Password: ";
+    cin >> password;
+    cout << "Enter Contact: ";
+    cin >> contact;
+
+    Student s(id, name, age, course, gpa, username, password, contact);
+    saveStudent(s);
+    cout << "Student added successfully!\n";
+            // existing add student code
+        }
+        else if (choice == 2) {
+            viewAllStudents();
+        }
+        else if (choice == 3) {
+            updateStudent();
+        }
+        else if (choice == 4) {
+            deleteStudent();
+        }
+        else if (choice == 5) {
+                int id;
+    string date, status;
+
+    cout << "Enter Student ID: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    cout << "Enter Date (YYYY-MM-DD): ";
+    getline(cin, date);
+
+    cout << "Enter Status (Present/Absent): ";
+    getline(cin, status);
+
+    markAttendance(id, date, status);
+    cout << "Attendance marked!\n";
+            // mark attendance
+        }
+        else if (choice == 6) {
+                 int id;
+    cout << "Enter Student ID: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    viewAttendance(id);
+            // view attendance
+        }
+    } while (choice != 7);
+}
+
+
+// ================== Student Menu ==================
+void studentMenu(Student s) {
+    int choice;
+    do {
+        cout << "\n===== Student Menu =====\n";
+        cout << "1. View Profile\n";
+        cout << "2. View Attendance\n";
+        cout << "3. Logout\n";
+        cout << "Enter choice: ";
+        cin >> choice;
+
+        if (choice == 1) {
+            s.display();
+        }
+        else if (choice == 2) {
+            viewAttendance(s.id);
+        }
+    } while (choice != 3);
+}
+
+// ================== Login ==================
+bool adminLogin() {
+    string user, pass;
+    cout << "Enter Admin Username: "; cin >> user;
+    cout << "Enter Admin Password: "; cin >> pass;
+
+    ifstream fin("admin.txt");
+    if (!fin) {
+        cout << "Admin file not found. Creating default admin (admin/admin123)\n";
+        ofstream fout("admin.txt");
+        fout << "admin admin123\n";
+        fout.close();
+        return (user == "admin" && pass == "admin123");
+    }
+
+    string fileUser, filePass;
+    while (fin >> fileUser >> filePass) {
+        if (user == fileUser && pass == filePass) {
+            fin.close();
+            return true;
+        }
+    }
+    fin.close();
+    return false;
+}
+
+
+void studentLogin() {
+    string username, password;
+    cout << "Enter Username: "; cin >> username;
+    cout << "Enter Password: "; cin >> password;
+
+    vector<Student> students = loadStudents();
+    for (auto &s : students) {
+        if (s.username == username && s.password == password) {
+            cout << "Login successful! Welcome, " << s.name << endl;
+            studentMenu(s);
+            return;
+        }
+    }
+    cout << "Invalid student credentials!\n";
+}
+
+// ================== Main ==================
+int main() {
+    int choice;
+    do {
+        cout << "\n===== Main Menu =====\n";
+        cout << "1. Admin Login\n";
+        cout << "2. Student Login\n";
+        cout << "3. Exit\n";
+        cout << "Enter choice: ";
+        cin >> choice;
+
+        if (choice == 1) {
+            if (adminLogin()) {
+                adminMenu();
+            } else {
+                cout << "Invalid Admin Credentials!\n";
+            }
+        }
+        else if (choice == 2) {
+            studentLogin();
+        }
+
+    } while (choice != 3);
+
+    cout << "Exiting program...\n";
+    return 0;
+}
